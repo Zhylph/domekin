@@ -182,6 +182,173 @@ function parseCSVLine(line) {
   return result.map(field => field.replace(/^"|"$/g, '')); // Remove surrounding quotes
 }
 
+// Parse CSV file
+async function parseCSVFile(filePath) {
+  const fs = require('fs');
+  const fileContent = fs.readFileSync(filePath, 'utf-8');
+  const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line);
+
+  if (lines.length === 0) {
+    return [];
+  }
+
+  // Check if first line is header
+  const hasHeader = lines[0].toLowerCase().includes('kegiatan_harian') ||
+                   lines[0].toLowerCase().includes('klasifikasi_tugas');
+
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+  const tasks = [];
+
+  for (const line of dataLines) {
+    try {
+      const fields = parseCSVLine(line);
+      if (fields.length >= 2) {
+        const kegiatanHarian = fields[0].trim();
+        const klasifikasiTugas = fields[1].trim();
+
+        if (kegiatanHarian && klasifikasiTugas) {
+          tasks.push({
+            kegiatan_harian: kegiatanHarian,
+            klasifikasi_tugas: klasifikasiTugas
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing CSV line:', line, error);
+    }
+  }
+
+  return tasks;
+}
+
+// Parse JSON file
+async function parseJSONFile(filePath) {
+  const fs = require('fs');
+  try {
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(fileContent);
+
+    // Support different JSON structures
+    let tasks = [];
+
+    if (Array.isArray(data)) {
+      // Array of task objects
+      tasks = data;
+    } else if (data.tasks && Array.isArray(data.tasks)) {
+      // Object with tasks property
+      tasks = data.tasks;
+    } else if (data.kegiatan_harian && data.klasifikasi_tugas) {
+      // Single task object
+      tasks = [data];
+    }
+
+    // Validate and normalize task objects
+    return tasks.filter(task =>
+      task &&
+      typeof task === 'object' &&
+      task.kegiatan_harian &&
+      task.klasifikasi_tugas
+    ).map(task => ({
+      kegiatan_harian: String(task.kegiatan_harian).trim(),
+      klasifikasi_tugas: String(task.klasifikasi_tugas).trim()
+    }));
+
+  } catch (error) {
+    console.error('Error parsing JSON file:', error);
+    return [];
+  }
+}
+
+// Parse text file
+async function parseTextFile(filePath) {
+  const fs = require('fs');
+  const fileContent = fs.readFileSync(filePath, 'utf-8');
+  const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line);
+
+  const tasks = [];
+
+  for (const line of lines) {
+    // Support different text formats:
+    // 1. "Task name | Category"
+    // 2. "Task name - Category"
+    // 3. "Task name : Category"
+    // 4. "Task name, Category"
+
+    let kegiatanHarian = '';
+    let klasifikasiTugas = '';
+
+    if (line.includes(' | ')) {
+      [kegiatanHarian, klasifikasiTugas] = line.split(' | ');
+    } else if (line.includes(' - ')) {
+      [kegiatanHarian, klasifikasiTugas] = line.split(' - ');
+    } else if (line.includes(' : ')) {
+      [kegiatanHarian, klasifikasiTugas] = line.split(' : ');
+    } else if (line.includes(', ')) {
+      [kegiatanHarian, klasifikasiTugas] = line.split(', ');
+    }
+
+    if (kegiatanHarian && klasifikasiTugas) {
+      tasks.push({
+        kegiatan_harian: kegiatanHarian.trim(),
+        klasifikasi_tugas: klasifikasiTugas.trim()
+      });
+    }
+  }
+
+  return tasks;
+}
+
+// Parse Excel file
+async function parseExcelFile(filePath) {
+  try {
+    const XLSX = require('xlsx');
+    const workbook = XLSX.readFile(filePath);
+
+    // Get the first worksheet
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Convert to JSON
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (jsonData.length === 0) {
+      return [];
+    }
+
+    // Check if first row is header
+    const firstRow = jsonData[0];
+    const hasHeader = firstRow.some(cell =>
+      String(cell).toLowerCase().includes('kegiatan') ||
+      String(cell).toLowerCase().includes('klasifikasi') ||
+      String(cell).toLowerCase().includes('task') ||
+      String(cell).toLowerCase().includes('category')
+    );
+
+    const dataRows = hasHeader ? jsonData.slice(1) : jsonData;
+    const tasks = [];
+
+    for (const row of dataRows) {
+      if (row && row.length >= 2) {
+        const kegiatanHarian = String(row[0] || '').trim();
+        const klasifikasiTugas = String(row[1] || '').trim();
+
+        if (kegiatanHarian && klasifikasiTugas) {
+          tasks.push({
+            kegiatan_harian: kegiatanHarian,
+            klasifikasi_tugas: klasifikasiTugas
+          });
+        }
+      }
+    }
+
+    return tasks;
+
+  } catch (error) {
+    console.error('Error parsing Excel file:', error);
+    return [];
+  }
+}
+
 // Setup IPC handlers
 function setupIpcHandlers() {
   // Database operations
@@ -286,6 +453,9 @@ function setupIpcHandlers() {
         properties: ['openFile'],
         filters: [
           { name: 'CSV Files', extensions: ['csv'] },
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
           { name: 'All Files', extensions: ['*'] }
         ]
       });
@@ -306,18 +476,33 @@ function setupIpcHandlers() {
         return { success: false, error: 'File not found' };
       }
 
-      const fileContent = fs.readFileSync(filePath, 'utf-8');
-      const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line);
+      const fileExtension = path.extname(filePath).toLowerCase();
+      let tasks = [];
 
-      if (lines.length === 0) {
-        return { success: false, error: 'File is empty' };
+      // Parse different file formats
+      switch (fileExtension) {
+        case '.csv':
+          tasks = await parseCSVFile(filePath);
+          break;
+        case '.json':
+          tasks = await parseJSONFile(filePath);
+          break;
+        case '.txt':
+          tasks = await parseTextFile(filePath);
+          break;
+        case '.xlsx':
+        case '.xls':
+          tasks = await parseExcelFile(filePath);
+          break;
+        default:
+          // Try to parse as CSV by default
+          tasks = await parseCSVFile(filePath);
       }
 
-      // Check if first line is header
-      const hasHeader = lines[0].toLowerCase().includes('kegiatan_harian') ||
-                       lines[0].toLowerCase().includes('klasifikasi_tugas');
+      if (tasks.length === 0) {
+        return { success: false, error: 'No valid tasks found in file' };
+      }
 
-      const dataLines = hasHeader ? lines.slice(1) : lines;
       let imported = 0;
       let skipped = 0;
 
@@ -335,32 +520,48 @@ function setupIpcHandlers() {
         'Laporan Pelaksanaan'
       ];
 
-      for (const line of dataLines) {
+      // Mapping dari deskripsi lengkap ke kategori singkat
+      const categoryMapping = {
+        'Melakukan backup atau pemulihan data': 'Backup dan Pemulihan Data',
+        'Menyusun prosedur pemanfaatan sistem jaringan': 'Prosedur Sistem Jaringan',
+        'Melakukan deteksi dan atau perbaikan terhadap permasalahan yang terjadi pada sistem jaringan kompleks': 'Deteksi dan Perbaikan Jaringan',
+        'Melakukan pemeliharaan infrastruktur TI': 'Pemeliharaan Infrastruktur TI',
+        'Melakukan pemasangan infrastruktur TI': 'Pemasangan Infrastruktur TI',
+        'Mengembangkan program aplikasi sistem informasi': 'Pengembangan Aplikasi',
+        'Melakukan instalasi/upgrade dan konfigurasi sistem operasi/aplikasi': 'Instalasi dan Konfigurasi',
+        'Melakukan editing objek multimedia kompleks dengan piranti lunak': 'Editing Multimedia',
+        'Melaksanakan tugas lainnya yang diperintahkan oleh pimpinan': 'Tugas Lainnya',
+        'Membuat laporan pelaksanaan tugas sesuai petunjuk pelaksanaan (juklak) sebagai pertanggung jawaban kerja': 'Laporan Pelaksanaan',
+        'Membuat laporan pelaksanaan tugas sesuai petunjuk pelaksanaan (juklak) sebagai pertanggung jawaban kerja.': 'Laporan Pelaksanaan'
+      };
+
+      for (const task of tasks) {
         try {
-          // Simple CSV parsing (handles quoted fields)
-          const fields = parseCSVLine(line);
+          const kegiatanHarian = task.kegiatan_harian;
+          let klasifikasiTugas = task.klasifikasi_tugas;
 
-          if (fields.length >= 2) {
-            const kegiatanHarian = fields[0].trim();
-            const klasifikasiTugas = fields[1].trim();
+          if (kegiatanHarian && klasifikasiTugas) {
+            const originalCategory = klasifikasiTugas;
 
-            if (kegiatanHarian && klasifikasiTugas) {
-              // Validate category
-              if (validCategories.includes(klasifikasiTugas)) {
-                await database.addTask(kegiatanHarian, klasifikasiTugas);
-                imported++;
-              } else {
-                console.warn(`Invalid category: ${klasifikasiTugas}`);
-                skipped++;
-              }
+            // Auto-convert dari deskripsi lengkap ke kategori singkat
+            if (categoryMapping[klasifikasiTugas]) {
+              klasifikasiTugas = categoryMapping[klasifikasiTugas];
+              console.log(`Auto-converted: "${originalCategory}" → "${klasifikasiTugas}"`);
+            }
+
+            // Validate category
+            if (validCategories.includes(klasifikasiTugas)) {
+              await database.addTask(kegiatanHarian, klasifikasiTugas);
+              imported++;
             } else {
+              console.warn(`Invalid category: ${klasifikasiTugas}`);
               skipped++;
             }
           } else {
             skipped++;
           }
         } catch (error) {
-          console.error('Error processing line:', line, error);
+          console.error('Error processing task:', task, error);
           skipped++;
         }
       }

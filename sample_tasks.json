@@ -1,0 +1,84 @@
+{
+  "tasks": [
+    {
+      "kegiatan_harian": "Backup database server utama",
+      "klasifikasi_tugas": "Backup dan Pemulihan Data"
+    },
+    {
+      "kegiatan_harian": "Restore data dari backup mingguan",
+      "klasifikasi_tugas": "Backup dan Pemulihan Data"
+    },
+    {
+      "kegiatan_harian": "Membuat prosedur konfigurasi router",
+      "klasifikasi_tugas": "Prosedur Sistem Jaringan"
+    },
+    {
+      "kegiatan_harian": "Dokumentasi topologi jaringan",
+      "klasifikasi_tugas": "Prosedur Sistem Jaringan"
+    },
+    {
+      "kegiatan_harian": "Troubleshooting koneksi internet",
+      "klasifikasi_tugas": "Deteksi dan Perbaikan Jaringan"
+    },
+    {
+      "kegiatan_harian": "Perbaikan switch yang rusak",
+      "klasifikasi_tugas": "Deteksi dan Perbaikan Jaringan"
+    },
+    {
+      "kegiatan_harian": "Maintenance server aplikasi",
+      "klasifikasi_tugas": "Pemeliharaan Infrastruktur TI"
+    },
+    {
+      "kegiatan_harian": "Update firmware router",
+      "klasifikasi_tugas": "Pemeliharaan Infrastruktur TI"
+    },
+    {
+      "kegiatan_harian": "Instalasi server baru",
+      "klasifikasi_tugas": "Pemasangan Infrastruktur TI"
+    },
+    {
+      "kegiatan_harian": "Setup workstation karyawan baru",
+      "klasifikasi_tugas": "Pemasangan Infrastruktur TI"
+    },
+    {
+      "kegiatan_harian": "Develop modul login sistem",
+      "klasifikasi_tugas": "Pengembangan Aplikasi"
+    },
+    {
+      "kegiatan_harian": "Testing aplikasi web",
+      "klasifikasi_tugas": "Pengembangan Aplikasi"
+    },
+    {
+      "kegiatan_harian": "Install Windows 11 di laptop",
+      "klasifikasi_tugas": "Instalasi dan Konfigurasi"
+    },
+    {
+      "kegiatan_harian": "Konfigurasi email server",
+      "klasifikasi_tugas": "Instalasi dan Konfigurasi"
+    },
+    {
+      "kegiatan_harian": "Edit video tutorial sistem",
+      "klasifikasi_tugas": "Editing Multimedia"
+    },
+    {
+      "kegiatan_harian": "Design banner untuk website",
+      "klasifikasi_tugas": "Editing Multimedia"
+    },
+    {
+      "kegiatan_harian": "Koordinasi dengan vendor",
+      "klasifikasi_tugas": "Tugas Lainnya"
+    },
+    {
+      "kegiatan_harian": "Meeting dengan tim IT",
+      "klasifikasi_tugas": "Tugas Lainnya"
+    },
+    {
+      "kegiatan_harian": "Laporan bulanan aktivitas IT",
+      "klasifikasi_tugas": "Laporan Pelaksanaan"
+    },
+    {
+      "kegiatan_harian": "Dokumentasi SOP baru",
+      "klasifikasi_tugas": "Laporan Pelaksanaan"
+    }
+  ]
+}
