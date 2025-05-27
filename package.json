@@ -1,0 +1,36 @@
+{
+  "name": "domekin",
+  "version": "1.0.0",
+  "description": "Desktop Task Scheduler with Random Assignment",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["electron", "task-scheduler", "desktop-app"],
+  "author": "Your Name",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6",
+    "moment": "^2.29.4"
+  },
+  "build": {
+    "appId": "com.domekin.taskscheduler",
+    "productName": "Domekin Task Scheduler",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/**/*"
+    ]
+  }
+}
