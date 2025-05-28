@@ -22,6 +22,7 @@ const elements = {
   generateSchedule: document.getElementById('generateSchedule'),
   manageTasks: document.getElementById('manageTasks'),
   exportSchedule: document.getElementById('exportSchedule'),
+  exportTasks: document.getElementById('exportTasks'),
   importTasks: document.getElementById('importTasks'),
   clearSchedule: document.getElementById('clearSchedule'),
 
@@ -66,6 +67,7 @@ function setupEventListeners() {
   elements.generateSchedule.addEventListener('click', generateSchedule);
   elements.manageTasks.addEventListener('click', openTaskModal);
   elements.exportSchedule.addEventListener('click', exportSchedule);
+  elements.exportTasks.addEventListener('click', exportTasks);
   elements.importTasks.addEventListener('click', importTasks);
   elements.clearSchedule.addEventListener('click', clearSchedule);
 
@@ -273,29 +275,46 @@ async function generateCalendar() {
         dayElement.classList.add('holiday');
       }
 
-      // Add day number
+      // Add day number with task indicator
       const dayNumber = document.createElement('div');
       dayNumber.className = 'day-number';
-      dayNumber.textContent = day;
-      dayElement.appendChild(dayNumber);
+
+      const dayNumberText = document.createElement('span');
+      dayNumberText.textContent = day;
+      dayNumber.appendChild(dayNumberText);
 
       // Add scheduled tasks for this day
       const dayTasks = currentSchedule.filter(task => task.scheduled_date === dateString);
       if (dayTasks.length > 0) {
         dayElement.classList.add('has-task');
 
-        dayTasks.forEach(task => {
-          const taskElement = document.createElement('div');
-          taskElement.className = `day-task category-${task.klasifikasi_tugas.toLowerCase().replace(/\s+/g, '-')}`;
-          taskElement.textContent = task.kegiatan_harian;
-          taskElement.title = `${task.kegiatan_harian} (${task.klasifikasi_tugas})`;
-          taskElement.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showTaskDetail(task);
-          });
-          dayElement.appendChild(taskElement);
-        });
+        // Create task indicator
+        const taskIndicator = document.createElement('div');
+        taskIndicator.className = 'task-indicator';
+
+        // Add task count
+        const taskCount = document.createElement('div');
+        taskCount.className = 'task-count';
+        taskCount.textContent = dayTasks.length;
+        taskIndicator.appendChild(taskCount);
+
+        // Add task dots (max 5 dots)
+        const taskDots = document.createElement('div');
+        taskDots.className = 'task-dots';
+
+        const maxDots = Math.min(dayTasks.length, 5);
+        for (let i = 0; i < maxDots; i++) {
+          const dot = document.createElement('div');
+          dot.className = `task-dot category-${dayTasks[i].klasifikasi_tugas.toLowerCase().replace(/\s+/g, '-')}`;
+          dot.title = dayTasks[i].klasifikasi_tugas;
+          taskDots.appendChild(dot);
+        }
+
+        taskIndicator.appendChild(taskDots);
+        dayNumber.appendChild(taskIndicator);
       }
+
+      dayElement.appendChild(dayNumber);
 
       // Add click event for day
       dayElement.addEventListener('click', () => {
@@ -370,7 +389,7 @@ async function clearSchedule() {
   if (confirm('Are you sure you want to clear the current schedule?')) {
     try {
       showLoading(true);
-      await window.electronAPI.saveSchedule([]);
+      await window.electronAPI.clearSchedule(currentMonth, currentYear);
       await loadSchedule();
       await updateUI();
       showSuccess('Schedule cleared successfully!');
@@ -380,6 +399,29 @@ async function clearSchedule() {
     } finally {
       showLoading(false);
     }
+  }
+}
+
+// Export tasks to Excel/CSV
+async function exportTasks() {
+  if (currentTasks.length === 0) {
+    showError('No tasks to export. Please add some tasks first.');
+    return;
+  }
+
+  try {
+    showLoading(true);
+    const result = await window.electronAPI.exportTasks(currentTasks);
+    if (result.success) {
+      showSuccess(`Tasks exported successfully to: ${result.filePath}`);
+    } else {
+      showError('Export was cancelled or failed');
+    }
+  } catch (error) {
+    console.error('Error exporting tasks:', error);
+    showError('Failed to export tasks');
+  } finally {
+    showLoading(false);
   }
 }
 
@@ -530,18 +572,36 @@ function closeTaskDetailModal() {
 
 // Show day tasks
 function showDayTasks(date, tasks) {
+  const formattedDate = formatDate(date);
+  const dayName = new Date(date).toLocaleDateString('id-ID', { weekday: 'long' });
+
   const content = `
     <div class="day-tasks">
-      <h4>Tasks for ${formatDate(date)}</h4>
-      <div class="task-list">
-        ${tasks.map(task => `
-          <div class="task-item">
-            <div class="task-info">
+      <div class="day-header">
+        <h4>${dayName}, ${formattedDate}</h4>
+        <div class="task-summary">
+          <span class="task-count-badge">${tasks.length} Task${tasks.length > 1 ? 's' : ''}</span>
+        </div>
+      </div>
+
+      <div class="task-list-detailed">
+        ${tasks.map((task, index) => `
+          <div class="task-item-detailed">
+            <div class="task-number">${index + 1}</div>
+            <div class="task-content">
               <div class="task-name">${task.kegiatan_harian}</div>
-              <div class="task-category">${task.klasifikasi_tugas}</div>
+              <div class="task-category-badge category-${task.klasifikasi_tugas.toLowerCase().replace(/\s+/g, '-')}">
+                ${task.klasifikasi_tugas}
+              </div>
             </div>
           </div>
         `).join('')}
+      </div>
+
+      <div class="task-actions-footer">
+        <button class="btn btn-outline" onclick="closeTaskDetailModal()">
+          <i class="fas fa-times"></i> Close
+        </button>
       </div>
     </div>
   `;

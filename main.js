@@ -426,6 +426,15 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('clear-schedule', async (event, month, year) => {
+    try {
+      return await database.clearSchedule(month, year);
+    } catch (error) {
+      console.error('Error clearing schedule:', error);
+      throw error;
+    }
+  });
+
   // Utility operations
   ipcMain.handle('get-holidays', async (event, year) => {
     try {
@@ -579,10 +588,88 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('export-tasks', async (event, tasks) => {
+    try {
+      const { dialog } = require('electron');
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: `tasks_export_${new Date().toISOString().split('T')[0]}.xlsx`,
+        filters: [
+          { name: 'Excel Files', extensions: ['xlsx'] },
+          { name: 'CSV Files', extensions: ['csv'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (result.canceled) {
+        return { success: false, canceled: true };
+      }
+
+      const filePath = result.filePath;
+      const fileExtension = path.extname(filePath).toLowerCase();
+
+      if (fileExtension === '.xlsx') {
+        await exportTasksToExcel(tasks, filePath);
+      } else if (fileExtension === '.csv') {
+        await exportTasksToCSV(tasks, filePath);
+      } else {
+        // Default to Excel if no extension
+        const excelPath = filePath.endsWith('.xlsx') ? filePath : filePath + '.xlsx';
+        await exportTasksToExcel(tasks, excelPath);
+      }
+
+      return { success: true, filePath };
+    } catch (error) {
+      console.error('Error exporting tasks:', error);
+      throw error;
+    }
+  });
+
   // App info
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
   });
+}
+
+// Export functions
+async function exportTasksToExcel(tasks, filePath) {
+  const XLSX = require('xlsx');
+
+  // Prepare data for Excel
+  const data = [
+    ['kegiatan_harian', 'klasifikasi_tugas'], // Header
+    ...tasks.map(task => [task.kegiatan_harian, task.klasifikasi_tugas])
+  ];
+
+  // Create workbook and worksheet
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+  // Set column widths
+  worksheet['!cols'] = [
+    { wch: 50 }, // kegiatan_harian
+    { wch: 30 }  // klasifikasi_tugas
+  ];
+
+  // Add worksheet to workbook
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Tasks');
+
+  // Write file
+  XLSX.writeFile(workbook, filePath);
+}
+
+async function exportTasksToCSV(tasks, filePath) {
+  const fs = require('fs');
+
+  // Prepare CSV content
+  const header = 'kegiatan_harian,klasifikasi_tugas\n';
+  const rows = tasks.map(task =>
+    `"${task.kegiatan_harian.replace(/"/g, '""')}","${task.klasifikasi_tugas.replace(/"/g, '""')}"`
+  ).join('\n');
+
+  const csvContent = header + rows;
+
+  // Write file
+  fs.writeFileSync(filePath, csvContent, 'utf8');
 }
 
 // Close database when app is closing

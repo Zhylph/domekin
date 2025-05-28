@@ -16,7 +16,7 @@ function shuffleArray(array) {
 }
 
 /**
- * Generate random schedule for tasks in a given month
+ * Generate random schedule for tasks in a given month with special rules
  * @param {Array} tasks - Array of task objects
  * @param {number} month - Month (1-12)
  * @param {number} year - Year
@@ -38,7 +38,7 @@ function generateRandomSchedule(tasks, month, year, options = {}) {
 
   // Get all working days for the month
   let workingDays = getWorkingDaysInMonth(month, year);
-  
+
   // Exclude specific dates if provided
   if (excludeDates.length > 0) {
     workingDays = workingDays.filter(date => {
@@ -51,18 +51,191 @@ function generateRandomSchedule(tasks, month, year, options = {}) {
     return [];
   }
 
+  // Use new smart distribution algorithm
+  return distributeTasksWithRules(tasks, workingDays, maxTasksPerDay, month, year);
+}
+
+/**
+ * Distribute tasks with special rules:
+ * 1. Each task must appear at least once per month
+ * 2. Backup tasks only on last working days of month
+ * 3. Maximum 3 tasks per day
+ * @param {Array} tasks - Array of tasks
+ * @param {Array} workingDays - Array of working days
+ * @param {number} maxTasksPerDay - Maximum tasks per day
+ * @param {number} month - Month number
+ * @param {number} year - Year number
+ * @returns {Array} Scheduled tasks
+ */
+function distributeTasksWithRules(tasks, workingDays, maxTasksPerDay, month, year) {
   const schedule = [];
-  const availableTasks = [...tasks];
-  
-  // Shuffle working days for random distribution
-  const shuffledWorkingDays = shuffleArray(workingDays);
-  
-  if (distributeEvenly) {
-    // Distribute tasks evenly across working days
-    return distributeTasksEvenly(availableTasks, shuffledWorkingDays, maxTasksPerDay);
-  } else {
-    // Random distribution with constraints
-    return distributeTasksRandomly(availableTasks, shuffledWorkingDays, minTasksPerDay, maxTasksPerDay);
+
+  // Separate backup tasks from other tasks
+  const backupTasks = tasks.filter(task =>
+    task.klasifikasi_tugas === 'Backup dan Pemulihan Data'
+  );
+  const otherTasks = tasks.filter(task =>
+    task.klasifikasi_tugas !== 'Backup dan Pemulihan Data'
+  );
+
+  // Get last working days for backup tasks (last 3-5 working days)
+  const totalWorkingDays = workingDays.length;
+  const backupDaysCount = Math.min(Math.ceil(totalWorkingDays * 0.2), 5); // 20% of month or max 5 days
+  const lastWorkingDays = workingDays.slice(-backupDaysCount);
+  const regularWorkingDays = workingDays.slice(0, -backupDaysCount);
+
+  console.log(`Total working days: ${totalWorkingDays}`);
+  console.log(`Backup days: ${backupDaysCount} (last ${backupDaysCount} days)`);
+  console.log(`Regular days: ${regularWorkingDays.length}`);
+
+  // Step 1: Ensure each non-backup task appears at least once
+  const guaranteedTasks = [];
+  otherTasks.forEach(task => {
+    guaranteedTasks.push({
+      task_id: task.id,
+      scheduled_date: null, // Will be assigned later
+      kegiatan_harian: task.kegiatan_harian,
+      klasifikasi_tugas: task.klasifikasi_tugas,
+      isGuaranteed: true
+    });
+  });
+
+  // Step 2: Ensure each backup task appears at least once in last working days
+  backupTasks.forEach(task => {
+    guaranteedTasks.push({
+      task_id: task.id,
+      scheduled_date: null, // Will be assigned later
+      kegiatan_harian: task.kegiatan_harian,
+      klasifikasi_tugas: task.klasifikasi_tugas,
+      isGuaranteed: true,
+      isBackup: true
+    });
+  });
+
+  // Step 3: Distribute guaranteed tasks
+  const shuffledGuaranteedTasks = shuffleArray(guaranteedTasks);
+  const daySchedule = {}; // Track tasks per day
+
+  // Initialize day schedule
+  workingDays.forEach(day => {
+    daySchedule[toISODateString(day)] = [];
+  });
+
+  // Assign guaranteed backup tasks to last working days
+  const backupTasksToAssign = shuffledGuaranteedTasks.filter(task => task.isBackup);
+  const shuffledLastDays = shuffleArray([...lastWorkingDays]);
+
+  backupTasksToAssign.forEach((task, index) => {
+    const dayIndex = index % shuffledLastDays.length;
+    const assignedDay = shuffledLastDays[dayIndex];
+    const dateString = toISODateString(assignedDay);
+
+    if (daySchedule[dateString].length < maxTasksPerDay) {
+      task.scheduled_date = dateString;
+      daySchedule[dateString].push(task);
+      schedule.push(task);
+    }
+  });
+
+  // Assign guaranteed non-backup tasks to regular working days
+  const nonBackupTasksToAssign = shuffledGuaranteedTasks.filter(task => !task.isBackup);
+  const shuffledRegularDays = shuffleArray([...regularWorkingDays]);
+
+  nonBackupTasksToAssign.forEach((task, index) => {
+    let assigned = false;
+
+    // Try to assign to regular days first
+    for (let i = 0; i < shuffledRegularDays.length && !assigned; i++) {
+      const dayIndex = (index + i) % shuffledRegularDays.length;
+      const assignedDay = shuffledRegularDays[dayIndex];
+      const dateString = toISODateString(assignedDay);
+
+      if (daySchedule[dateString].length < maxTasksPerDay) {
+        task.scheduled_date = dateString;
+        daySchedule[dateString].push(task);
+        schedule.push(task);
+        assigned = true;
+      }
+    }
+
+    // If can't assign to regular days, try last working days (but avoid backup conflicts)
+    if (!assigned) {
+      for (let i = 0; i < shuffledLastDays.length && !assigned; i++) {
+        const assignedDay = shuffledLastDays[i];
+        const dateString = toISODateString(assignedDay);
+
+        if (daySchedule[dateString].length < maxTasksPerDay) {
+          task.scheduled_date = dateString;
+          daySchedule[dateString].push(task);
+          schedule.push(task);
+          assigned = true;
+        }
+      }
+    }
+  });
+
+  // Step 4: Fill remaining slots with random tasks (prioritize variety)
+  const allAvailableTasks = [...otherTasks, ...backupTasks];
+  const remainingSlots = calculateRemainingSlots(daySchedule, maxTasksPerDay);
+
+  console.log(`Remaining slots to fill: ${remainingSlots}`);
+
+  if (remainingSlots > 0) {
+    fillRemainingSlots(schedule, daySchedule, allAvailableTasks, workingDays, lastWorkingDays, maxTasksPerDay, remainingSlots);
+  }
+
+  console.log(`Total scheduled tasks: ${schedule.length}`);
+  return schedule;
+}
+
+/**
+ * Calculate remaining slots across all days
+ */
+function calculateRemainingSlots(daySchedule, maxTasksPerDay) {
+  let totalSlots = 0;
+  Object.values(daySchedule).forEach(dayTasks => {
+    totalSlots += Math.max(0, maxTasksPerDay - dayTasks.length);
+  });
+  return totalSlots;
+}
+
+/**
+ * Fill remaining slots with random tasks
+ */
+function fillRemainingSlots(schedule, daySchedule, allTasks, workingDays, lastWorkingDays, maxTasksPerDay, remainingSlots) {
+  const shuffledTasks = shuffleArray(allTasks);
+  let slotsToFill = remainingSlots;
+  let taskIndex = 0;
+
+  while (slotsToFill > 0 && taskIndex < shuffledTasks.length * 10) { // Prevent infinite loop
+    const task = shuffledTasks[taskIndex % shuffledTasks.length];
+    const isBackupTask = task.klasifikasi_tugas === 'Backup dan Pemulihan Data';
+
+    // Choose appropriate days based on task type
+    const availableDays = isBackupTask ? lastWorkingDays : workingDays;
+    const shuffledDays = shuffleArray([...availableDays]);
+
+    // Try to assign to a day with available slots
+    for (const day of shuffledDays) {
+      const dateString = toISODateString(day);
+
+      if (daySchedule[dateString].length < maxTasksPerDay) {
+        const newTask = {
+          task_id: task.id,
+          scheduled_date: dateString,
+          kegiatan_harian: task.kegiatan_harian,
+          klasifikasi_tugas: task.klasifikasi_tugas,
+          isGuaranteed: false
+        };
+
+        daySchedule[dateString].push(newTask);
+        schedule.push(newTask);
+        slotsToFill--;
+        break;
+      }
+    }
+
+    taskIndex++;
   }
 }
 
@@ -77,7 +250,7 @@ function distributeTasksEvenly(tasks, workingDays, maxTasksPerDay) {
   const schedule = [];
   const shuffledTasks = shuffleArray(tasks);
   const totalSlots = workingDays.length * maxTasksPerDay;
-  
+
   // If we have more tasks than slots, we need to cycle through tasks
   const tasksToSchedule = [];
   if (shuffledTasks.length <= totalSlots) {
@@ -88,12 +261,12 @@ function distributeTasksEvenly(tasks, workingDays, maxTasksPerDay) {
       tasksToSchedule.push(shuffledTasks[i % shuffledTasks.length]);
     }
   }
-  
+
   // Distribute tasks across days
   let taskIndex = 0;
   for (const workingDay of workingDays) {
     const tasksForDay = Math.min(maxTasksPerDay, tasksToSchedule.length - taskIndex);
-    
+
     for (let i = 0; i < tasksForDay; i++) {
       if (taskIndex < tasksToSchedule.length) {
         schedule.push({
@@ -106,7 +279,7 @@ function distributeTasksEvenly(tasks, workingDays, maxTasksPerDay) {
       }
     }
   }
-  
+
   return schedule;
 }
 
@@ -122,11 +295,11 @@ function distributeTasksRandomly(tasks, workingDays, minTasksPerDay, maxTasksPer
   const schedule = [];
   const shuffledTasks = shuffleArray(tasks);
   let taskIndex = 0;
-  
+
   for (const workingDay of workingDays) {
     // Random number of tasks for this day
     const tasksForDay = Math.floor(Math.random() * (maxTasksPerDay - minTasksPerDay + 1)) + minTasksPerDay;
-    
+
     for (let i = 0; i < tasksForDay; i++) {
       if (taskIndex < shuffledTasks.length) {
         schedule.push({
@@ -151,7 +324,7 @@ function distributeTasksRandomly(tasks, workingDays, minTasksPerDay, maxTasksPer
       }
     }
   }
-  
+
   return schedule;
 }
 
@@ -165,7 +338,7 @@ function distributeTasksRandomly(tasks, workingDays, minTasksPerDay, maxTasksPer
  */
 function generateBalancedSchedule(tasks, month, year, options = {}) {
   const { maxTasksPerDay = 3 } = options;
-  
+
   // Group tasks by category
   const tasksByCategory = {};
   tasks.forEach(task => {
@@ -175,35 +348,35 @@ function generateBalancedSchedule(tasks, month, year, options = {}) {
     }
     tasksByCategory[category].push(task);
   });
-  
+
   const workingDays = getWorkingDaysInMonth(month, year);
   const schedule = [];
   const categories = Object.keys(tasksByCategory);
-  
+
   if (categories.length === 0 || workingDays.length === 0) {
     return [];
   }
-  
+
   // Shuffle categories and working days
   const shuffledCategories = shuffleArray(categories);
   const shuffledWorkingDays = shuffleArray(workingDays);
-  
+
   let categoryIndex = 0;
-  
+
   for (const workingDay of shuffledWorkingDays) {
     const tasksForDay = Math.min(maxTasksPerDay, tasks.length);
     const selectedTasks = [];
-    
+
     // Try to get tasks from different categories for variety
     for (let i = 0; i < tasksForDay; i++) {
       const currentCategory = shuffledCategories[categoryIndex % shuffledCategories.length];
       const categoryTasks = tasksByCategory[currentCategory];
-      
+
       if (categoryTasks && categoryTasks.length > 0) {
         // Get a random task from this category
         const randomTaskIndex = Math.floor(Math.random() * categoryTasks.length);
         const selectedTask = categoryTasks[randomTaskIndex];
-        
+
         selectedTasks.push({
           task_id: selectedTask.id,
           scheduled_date: toISODateString(workingDay),
@@ -211,13 +384,13 @@ function generateBalancedSchedule(tasks, month, year, options = {}) {
           klasifikasi_tugas: selectedTask.klasifikasi_tugas
         });
       }
-      
+
       categoryIndex++;
     }
-    
+
     schedule.push(...selectedTasks);
   }
-  
+
   return schedule;
 }
 
@@ -233,10 +406,10 @@ function validateSchedule(schedule, constraints = {}) {
     minTasksPerDay = 0,
     requiredCategories = []
   } = constraints;
-  
+
   const errors = [];
   const warnings = [];
-  
+
   // Group schedule by date
   const scheduleByDate = {};
   schedule.forEach(item => {
@@ -246,7 +419,7 @@ function validateSchedule(schedule, constraints = {}) {
     }
     scheduleByDate[date].push(item);
   });
-  
+
   // Check tasks per day constraints
   Object.entries(scheduleByDate).forEach(([date, tasks]) => {
     if (tasks.length > maxTasksPerDay) {
@@ -256,7 +429,7 @@ function validateSchedule(schedule, constraints = {}) {
       warnings.push(`Too few tasks on ${date}: ${tasks.length} (min: ${minTasksPerDay})`);
     }
   });
-  
+
   // Check required categories
   if (requiredCategories.length > 0) {
     const scheduledCategories = new Set(schedule.map(item => item.klasifikasi_tugas));
@@ -266,7 +439,7 @@ function validateSchedule(schedule, constraints = {}) {
       }
     });
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -295,10 +468,10 @@ function getScheduleStats(schedule) {
       categoryDistribution: {}
     };
   }
-  
+
   const scheduleByDate = {};
   const categoryCount = {};
-  
+
   schedule.forEach(item => {
     // Group by date
     const date = item.scheduled_date;
@@ -306,14 +479,14 @@ function getScheduleStats(schedule) {
       scheduleByDate[date] = [];
     }
     scheduleByDate[date].push(item);
-    
+
     // Count categories
     const category = item.klasifikasi_tugas || 'Other';
     categoryCount[category] = (categoryCount[category] || 0) + 1;
   });
-  
+
   const uniqueDates = Object.keys(scheduleByDate).length;
-  
+
   return {
     totalTasks: schedule.length,
     uniqueDates,

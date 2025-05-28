@@ -343,17 +343,19 @@ body {
 
 .calendar-day {
   background-color: var(--bg-card);
-  padding: 1rem;
-  min-height: 120px;
+  padding: 0.75rem;
+  min-height: 80px;
   display: flex;
   flex-direction: column;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  border: 1px solid transparent;
 }
 
 .calendar-day:hover {
   background-color: var(--bg-hover);
+  border-color: var(--border-hover);
 }
 
 .calendar-day.weekend {
@@ -372,21 +374,91 @@ body {
 
 .day-number {
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.task-count {
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.375rem;
+  border-radius: 50%;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.task-dots {
+  display: flex;
+  gap: 0.125rem;
+  flex-wrap: wrap;
+  max-width: 60px;
+}
+
+.task-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+}
+
+.task-dot.category-backup-dan-pemulihan-data {
+  background-color: #3b82f6;
+}
+
+.task-dot.category-prosedur-sistem-jaringan {
+  background-color: #10b981;
+}
+
+.task-dot.category-deteksi-dan-perbaikan-jaringan {
+  background-color: #ef4444;
+}
+
+.task-dot.category-pemeliharaan-infrastruktur-ti {
+  background-color: #f59e0b;
+}
+
+.task-dot.category-pemasangan-infrastruktur-ti {
+  background-color: #8b5cf6;
+}
+
+.task-dot.category-pengembangan-aplikasi {
+  background-color: #06b6d4;
+}
+
+.task-dot.category-instalasi-dan-konfigurasi {
+  background-color: #84cc16;
+}
+
+.task-dot.category-editing-multimedia {
+  background-color: #ec4899;
+}
+
+.task-dot.category-tugas-lainnya {
+  background-color: #64748b;
+}
+
+.task-dot.category-laporan-pelaksanaan {
+  background-color: #0ea5e9;
 }
 
 .day-task {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  margin-bottom: 0.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: none; /* Hide by default, show only in modal */
 }
 
 .day-task.category-backup-dan-pemulihan-data {
@@ -631,6 +703,147 @@ body {
 .task-actions .btn {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
+}
+
+/* Day Tasks Modal Styling */
+.day-tasks {
+  padding: 0;
+}
+
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.day-header h4 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.task-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-count-badge {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.task-list-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.task-item-detailed {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.task-item-detailed:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.task-number {
+  background-color: var(--primary-color);
+  color: white;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.task-content {
+  flex: 1;
+}
+
+.task-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.task-category-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.task-category-badge.category-backup-dan-pemulihan-data {
+  background-color: #3b82f6;
+}
+
+.task-category-badge.category-prosedur-sistem-jaringan {
+  background-color: #10b981;
+}
+
+.task-category-badge.category-deteksi-dan-perbaikan-jaringan {
+  background-color: #ef4444;
+}
+
+.task-category-badge.category-pemeliharaan-infrastruktur-ti {
+  background-color: #f59e0b;
+}
+
+.task-category-badge.category-pemasangan-infrastruktur-ti {
+  background-color: #8b5cf6;
+}
+
+.task-category-badge.category-pengembangan-aplikasi {
+  background-color: #06b6d4;
+}
+
+.task-category-badge.category-instalasi-dan-konfigurasi {
+  background-color: #84cc16;
+}
+
+.task-category-badge.category-editing-multimedia {
+  background-color: #ec4899;
+}
+
+.task-category-badge.category-tugas-lainnya {
+  background-color: #64748b;
+}
+
+.task-category-badge.category-laporan-pelaksanaan {
+  background-color: #0ea5e9;
+}
+
+.task-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Scrollbar Styling */

@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generateSchedule: (month, year) => ipcRenderer.invoke('generate-schedule', month, year),
   getSchedule: (month, year) => ipcRenderer.invoke('get-schedule', month, year),
   saveSchedule: (schedule) => ipcRenderer.invoke('save-schedule', schedule),
+  clearSchedule: (month, year) => ipcRenderer.invoke('clear-schedule', month, year),
 
   // Utility operations
   getHolidays: (year) => ipcRenderer.invoke('get-holidays', year),
@@ -31,6 +32,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File operations
   selectFile: () => ipcRenderer.invoke('select-file'),
   importTasksFromFile: (filePath) => ipcRenderer.invoke('import-tasks-from-file', filePath),
+  exportTasks: (tasks) => ipcRenderer.invoke('export-tasks', tasks),
+  exportSchedule: (schedule, month, year) => ipcRenderer.invoke('export-schedule', schedule, month, year),
 
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version')
