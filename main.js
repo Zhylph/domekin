@@ -438,7 +438,7 @@ function setupIpcHandlers() {
   // Utility operations
   ipcMain.handle('get-holidays', async (event, year) => {
     try {
-      return await database.getHolidays(year);
+      return getHolidaysForYear(year);
     } catch (error) {
       console.error('Error getting holidays:', error);
       throw error;

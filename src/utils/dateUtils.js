@@ -47,11 +47,11 @@ function getIndonesianDayName(date) {
 function getDatesInMonth(month, year) {
   const dates = [];
   const daysInMonth = new Date(year, month, 0).getDate();
-  
+
   for (let day = 1; day <= daysInMonth; day++) {
     dates.push(new Date(year, month - 1, day));
   }
-  
+
   return dates;
 }
 
@@ -66,32 +66,32 @@ function getCalendarGrid(month, year) {
   const lastDay = new Date(year, month, 0);
   const startDate = new Date(firstDay);
   const endDate = new Date(lastDay);
-  
+
   // Adjust to start from Monday (Indonesian calendar typically starts with Monday)
   const startDayOfWeek = firstDay.getDay();
   const daysToSubtract = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
   startDate.setDate(startDate.getDate() - daysToSubtract);
-  
+
   // Adjust end date to complete the week
   const endDayOfWeek = lastDay.getDay();
   const daysToAdd = endDayOfWeek === 0 ? 0 : 7 - endDayOfWeek;
   endDate.setDate(endDate.getDate() + daysToAdd);
-  
+
   const weeks = [];
   let currentWeek = [];
   const currentDate = new Date(startDate);
-  
+
   while (currentDate <= endDate) {
     currentWeek.push(new Date(currentDate));
-    
+
     if (currentWeek.length === 7) {
       weeks.push(currentWeek);
       currentWeek = [];
     }
-    
+
     currentDate.setDate(currentDate.getDate() + 1);
   }
-  
+
   return weeks;
 }
 
@@ -113,7 +113,7 @@ function isDateInMonth(date, month, year) {
  */
 function classifyDate(date) {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
+
   if (isHoliday(dateObj)) {
     const holiday = isHoliday(dateObj);
     return {
@@ -123,7 +123,7 @@ function classifyDate(date) {
       dayName: getIndonesianDayName(dateObj)
     };
   }
-  
+
   if (isWeekend(dateObj)) {
     return {
       type: 'weekend',
@@ -131,7 +131,7 @@ function classifyDate(date) {
       dayName: getIndonesianDayName(dateObj)
     };
   }
-  
+
   return {
     type: 'working',
     isWorkingDay: true,
@@ -149,7 +149,7 @@ function getWorkingDaysBetween(startDate, endDate) {
   const start = typeof startDate === 'string' ? new Date(startDate) : new Date(startDate);
   const end = typeof endDate === 'string' ? new Date(endDate) : new Date(endDate);
   const workingDays = [];
-  
+
   const currentDate = new Date(start);
   while (currentDate <= end) {
     const classification = classifyDate(currentDate);
@@ -158,7 +158,7 @@ function getWorkingDaysBetween(startDate, endDate) {
     }
     currentDate.setDate(currentDate.getDate() + 1);
   }
-  
+
   return workingDays;
 }
 
@@ -170,11 +170,11 @@ function getWorkingDaysBetween(startDate, endDate) {
 function getNextWorkingDay(date) {
   const nextDay = typeof date === 'string' ? new Date(date) : new Date(date);
   nextDay.setDate(nextDay.getDate() + 1);
-  
+
   while (!classifyDate(nextDay).isWorkingDay) {
     nextDay.setDate(nextDay.getDate() + 1);
   }
-  
+
   return nextDay;
 }
 
@@ -186,11 +186,11 @@ function getNextWorkingDay(date) {
 function getPreviousWorkingDay(date) {
   const prevDay = typeof date === 'string' ? new Date(date) : new Date(date);
   prevDay.setDate(prevDay.getDate() - 1);
-  
+
   while (!classifyDate(prevDay).isWorkingDay) {
     prevDay.setDate(prevDay.getDate() - 1);
   }
-  
+
   return prevDay;
 }
 
@@ -201,7 +201,11 @@ function getPreviousWorkingDay(date) {
  */
 function toISODateString(date) {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toISOString().split('T')[0];
+  // Format as YYYY-MM-DD in local timezone to avoid timezone issues
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -227,7 +231,7 @@ function getMonthNavigation(month, year) {
   const prevYear = month === 1 ? year - 1 : year;
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  
+
   return {
     previous: { month: prevMonth, year: prevYear },
     next: { month: nextMonth, year: nextYear }

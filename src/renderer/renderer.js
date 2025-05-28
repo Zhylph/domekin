@@ -257,7 +257,11 @@ async function generateCalendar() {
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentYear, currentMonth - 1, day);
-      const dateString = date.toISOString().split('T')[0];
+      // Format as YYYY-MM-DD in local timezone to avoid timezone issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${dayStr}`;
 
       const dayElement = document.createElement('div');
       dayElement.className = 'calendar-day';
@@ -317,11 +321,13 @@ async function generateCalendar() {
       dayElement.appendChild(dayNumber);
 
       // Add click event for day
-      dayElement.addEventListener('click', () => {
-        if (dayTasks.length > 0) {
-          showDayTasks(dateString, dayTasks);
-        }
-      });
+      dayElement.addEventListener('click', ((currentDateString, currentDayTasks) => {
+        return () => {
+          if (currentDayTasks.length > 0) {
+            showDayTasks(currentDateString, currentDayTasks);
+          }
+        };
+      })(dateString, dayTasks));
 
       elements.calendarGrid.appendChild(dayElement);
     }
